@@ -10,16 +10,20 @@
     You should have received a copy of the GNU General Public License
     along with strassen-matmul. If not, see <https://www.gnu.org/licenses/>.  -}
 
+import Control.DeepSeq
+
 data Matrix a = Matrix { matData :: [[a]],
                          rows :: Int,
                          cols :: Int } deriving (Show)
+instance NFData a => NFData (Matrix a) where
+  rnf Matrix{matData = md, rows = r, cols = c} = rnf md `seq` rnf r `seq` rnf c
 
-matInit :: (Num a) => a -> Int -> Int -> Matrix a
-matInit x r c = Matrix (take r $ repeat $ take c $ repeat x) r c
+matInit :: (Num a, NFData a) => a -> Int -> Int -> Matrix a
+matInit x r c = force $ Matrix (take r $ repeat $ take c $ repeat x) r c
 
-matDiag :: (Num a) => [a] -> Matrix a
+matDiag :: (Num a, NFData a) => [a] -> Matrix a
 matDiag [] = Matrix [] 0 0
-matDiag (x:xs) = Matrix ((x:(take (length xs) $ repeat 0)):(map ((:) 0) (matData $ matDiag xs))) r c
+matDiag (x:xs) = force $ Matrix ((x:(take (length xs) $ repeat 0)):(map ((:) 0) (matData $ matDiag xs))) r c
   where r = length xs + 1
         c = r
 

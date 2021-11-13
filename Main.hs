@@ -90,7 +90,7 @@ matmulStrassenInternal ma mb ra ca rb cb = force $ assemble4 c1 c2 c3 c4
 matmulStrassen :: (Num a, NFData a) => Matrix a -> Matrix a -> Maybe (Matrix a)
 matmulStrassen ma mb
   | (cols ma) /= (rows mb) = Nothing
-  | otherwise = force $ Just $ Matrix (matmulStrassenInternal maPow2 mbPow2 (nextPow2 ra) (nextPow2 ca) (nextPow2 rb) (nextPow2 cb)) (rows ma) (cols mb)
+  | otherwise = force $ Just $ Matrix (trimExcess $ matmulStrassenInternal maPow2 mbPow2 (nextPow2 ra) (nextPow2 ca) (nextPow2 rb) (nextPow2 cb)) (rows ma) (cols mb)
     where maPow2 = (map (\x -> x ++ (take (nextPow2 ca - ca) $ repeat 0)) $ matData ma) ++ (take (nextPow2 ra - ra) $ repeat $ take (nextPow2 ca) $ repeat 0)
           mbPow2 = (map (\x -> x ++ (take (nextPow2 cb - cb) $ repeat 0)) $ matData mb) ++ (take (nextPow2 rb - rb) $ repeat $ take (nextPow2 cb) $ repeat 0)
           ra = rows ma
@@ -99,14 +99,15 @@ matmulStrassen ma mb
           cb = cols mb
           nextPow2 0 = 0
           nextPow2 x = 2 ^ (countLeadingZeros (0 :: Int) - countLeadingZeros (x - 1))
+          trimExcess = take ra . (map $ take cb)
 
 main :: IO ()
 main = do
   g <- newStdGen
-  a <- return $!! fromJust $ matFromList (take 15 (randoms g :: [Double])) 3 5
+  a <- return $!! fromJust $ matFromList (take 100 (randoms g :: [Double])) 10 10
   g <- newStdGen
-  b <- return $!! fromJust $ matFromList (take 10 (randoms g :: [Double])) 5 2
+  b <- return $!! fromJust $ matFromList (take 100 (randoms g :: [Double])) 10 10
   c <- return $!! matmulNaive a b
   d <- return $!! matmulStrassen a b
-  print c
-  print d
+  print $ foldl' (+) 0 $ map (foldl' (+) 0) $ matData $ fromJust c
+  print $ foldl' (+) 0 $ map (foldl' (+) 0) $ matData $ fromJust d

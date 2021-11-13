@@ -16,4 +16,4 @@
 CC=ghc -dynamic
 
 Main: Main.hs
-	$(CC) $@ -o rwm
+	$(CC) $@ -o strassen-multiply

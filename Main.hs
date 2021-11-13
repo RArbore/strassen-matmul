@@ -29,13 +29,21 @@ matDiag (x:xs) = force $ Matrix ((x:(take (length xs) $ repeat 0)):(map ((:) 0) 
   where r = length xs + 1
         c = r
 
+matFromList :: (Num a, NFData a) => [a] -> Int -> Int -> Maybe (Matrix a)
+matFromList l r c
+  | (length l) /= r * c = Nothing
+  | otherwise = force $ Just $ Matrix (takeChunks c l) r c
+    where takeChunks 0 _ = []
+          takeChunks _ [] = []
+          takeChunks s lc = (take s lc):(takeChunks s $ drop s lc)
+
 matTranspose :: (Num a, NFData a) => Matrix a -> Matrix a
-matTranspose m = Matrix (transpose $ matData m) (cols m) (rows m)
+matTranspose m = force $ Matrix (transpose $ matData m) (cols m) (rows m)
 
 matmul :: (Num a, NFData a) => Matrix a -> Matrix a -> Maybe (Matrix a)
 matmul ma mb
   | (cols ma) /= (rows mb) = Nothing
-  | otherwise = Just $ Matrix ([[dot r c | c <- matData tmb] | r <- (matData ma)]) (rows ma) (cols mb)
+  | otherwise = force $ Just $ Matrix ([[dot r c | c <- matData tmb] | r <- (matData ma)]) (rows ma) (cols mb)
     where dot va vb = foldl' (+) 0 (zipWith (*) va vb)
           tmb = matTranspose mb
 
@@ -45,3 +53,4 @@ main = do
   print $ matDiag ([1, 1, 1] :: [Float])
   print $ matTranspose $ Matrix ([[1, 2, 3], [4, 5, 6], [7, 8, 9]] :: [[Float]]) 3 3
   print $ matmul (Matrix ([[1, 2, 3], [4, 5, 6], [7, 8, 9]] :: [[Float]]) 3 3) (Matrix ([[1, 2], [4, 5], [7, 8]] :: [[Float]]) 3 2)
+  print $ matFromList ([0.4, -2.5, 5.8, 1.2, 5.4, 3.0, 1000, 20.444] :: [Float]) 4 2

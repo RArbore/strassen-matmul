@@ -11,8 +11,12 @@
     along with strassen-matmul. If not, see <https://www.gnu.org/licenses/>.  -}
 
 import Control.DeepSeq
+import Control.Exception
 
 import Data.List
+import Data.Maybe
+
+import System.Random
 
 data Matrix a = Matrix { matData :: [[a]],
                          rows :: Int,
@@ -49,8 +53,9 @@ matmul ma mb
 
 main :: IO ()
 main = do
-  print $ matInit (1.7 :: Float) 3 3
-  print $ matDiag ([1, 1, 1] :: [Float])
-  print $ matTranspose $ Matrix ([[1, 2, 3], [4, 5, 6], [7, 8, 9]] :: [[Float]]) 3 3
-  print $ matmul (Matrix ([[1, 2, 3], [4, 5, 6], [7, 8, 9]] :: [[Float]]) 3 3) (Matrix ([[1, 2], [4, 5], [7, 8]] :: [[Float]]) 3 2)
-  print $ matFromList ([0.4, -2.5, 5.8, 1.2, 5.4, 3.0, 1000, 20.444] :: [Float]) 4 2
+  g <- newStdGen
+  a <- return $!! fromJust $ matFromList (take 100000 (randoms g :: [Double])) 1000 100
+  g <- newStdGen
+  b <- return $!! fromJust $ matFromList (take 100000 (randoms g :: [Double])) 100 1000
+  c <- return $!! matmul a b
+  return ()

@@ -17,8 +17,6 @@ import Data.Bits
 import Data.List
 import Data.Maybe
 
-import GHC.Integer.Logarithms
-
 import System.Random
 
 data Matrix a = Matrix { matData :: [[a]],

@@ -12,13 +12,14 @@
 
 import Control.DeepSeq
 import Control.Exception
+import Control.Parallel.Strategies
 
 import Data.Bits
 import Data.List
 import Data.Maybe
 
+import System.Clock
 import System.Random
-import System.TimeIt
 
 data Matrix a = Matrix { matData :: [[a]],
                          rows :: Int,
@@ -49,7 +50,7 @@ matTranspose m = force $ Matrix (transpose $ matData m) (cols m) (rows m)
 matmulNaive :: (Num a, NFData a) => Matrix a -> Matrix a -> Maybe (Matrix a)
 matmulNaive ma mb
   | (cols ma) /= (rows mb) = Nothing
-  | otherwise = Just $!! Matrix ([[dot r c | c <- matData tmb] | r <- (matData ma)]) (rows ma) (cols mb)
+  | otherwise = Just $!! Matrix ([[dot r c | c <- matData tmb] | r <- (matData ma)] `using` parListChunk 5 rdeepseq) (rows ma) (cols mb)
     where dot va vb = foldl' (+) 0 (zipWith (*) va vb)
           tmb = matTranspose mb
 
@@ -57,7 +58,7 @@ leafCutoffSize = 100 :: Int
 
 matmulStrassenInternal :: (Num a, NFData a) => [[a]] -> [[a]] -> Int -> Int -> Int -> Int -> [[a]]
 matmulStrassenInternal ma mb ra ca rb cb
-  | ra <= leafCutoffSize || ca <= leafCutoffSize || rb <= leafCutoffSize || cb <= leafCutoffSize = [[(\x y -> foldl' (+) 0 (zipWith (*) x y)) r c | c <- transpose mb] | r <- ma]
+  | ra <= leafCutoffSize || ca <= leafCutoffSize || rb <= leafCutoffSize || cb <= leafCutoffSize = [[(\x y -> foldl' (+) 0 (zipWith (*) x y)) r c | c <- transpose mb] | r <- ma] `using` parListChunk 5 rdeepseq
   | otherwise = id $!! assemble4 c1 c2 c3 c4
   where assemble4 m1 m2 m3 m4 = (zipWith (++) m1 m2) ++ (zipWith (++) m3 m4)
         anr = ra `div` 2
@@ -72,8 +73,8 @@ matmulStrassenInternal ma mb ra ca rb cb
         b12 = take bnr $ map (drop bnc) mb
         b21 = drop bnr $ map (take bnc) mb
         b22 = drop bnr $ map (drop bnc) mb
-        matAdd = zipWith (zipWith (+))
-        matSub = zipWith (zipWith (-))
+        matAdd x y = zipWith (zipWith (+)) x y `using` parBuffer 5 rseq
+        matSub x y = zipWith (zipWith (-)) x y `using` parBuffer 5 rseq
         p = matmulStrassenInternal (a11 `matAdd` a22) (b11 `matAdd` b22) anr anc bnr bnc
         q = matmulStrassenInternal (a21 `matAdd` a22) b11 anr anc bnr bnc
         r = matmulStrassenInternal a11 (b12 `matSub` b22) anr anc bnr bnc
@@ -81,10 +82,16 @@ matmulStrassenInternal ma mb ra ca rb cb
         t = matmulStrassenInternal (a11 `matAdd` a12) b22 anr anc bnr bnc
         u = matmulStrassenInternal (a21 `matSub` a11) (b11 `matAdd` b12) anr anc bnr bnc
         v = matmulStrassenInternal (a12 `matSub` a22) (b21 `matAdd` b22) anr anc bnr bnc
-        c1 = ((p `matAdd` s) `matSub` t) `matAdd` v
-        c2 = r `matAdd` t
-        c3 = q `matAdd` s
-        c4 = ((p `matAdd` r) `matSub` q) `matAdd` u
+        (c1, c2, c3, c4) = runEval $ do
+          ec1 <- rpar $ ((p `matAdd` s) `matSub` t) `matAdd` v
+          ec2 <- rpar $ r `matAdd` t
+          ec3 <- rpar $ q `matAdd` s
+          ec4 <- rpar $ ((p `matAdd` r) `matSub` q) `matAdd` u
+          rseq ec1
+          rseq ec2
+          rseq ec3
+          rseq ec4
+          return (ec1, ec2, ec3, ec4)
 
 matmulStrassen :: (Num a, NFData a) => Matrix a -> Matrix a -> Maybe (Matrix a)
 matmulStrassen ma mb
@@ -108,8 +115,14 @@ main = do
   a <- return $!! fromJust $ matFromList (take (size * size) (randoms g :: [Double])) size size
   g <- newStdGen
   b <- return $!! fromJust $ matFromList (take (size * size) (randoms g :: [Double])) size size
-  c <- timeIt $ return $!! matmulStrassen a b
-  d <- timeIt $ return $!! matmulNaive a b
-  print $!! foldl' (+) 0 $ map (foldl' (+) 0) $ matData $ fromJust c
-  print $!! foldl' (+) 0 $ map (foldl' (+) 0) $ matData $ fromJust d
+  startc <- getTime Monotonic
+  c <- return $!! matmulStrassen a b
+  endc <- getTime Monotonic
+  startd <- getTime Monotonic
+  putStrLn $ (show $ sec $ endc - startc) ++ '.':(show $ nsec $ endc - startc)
+  d <- return $!! matmulNaive a b
+  endd <- getTime Monotonic
+  putStrLn $ (show $ sec $ endd - startd) ++ '.':(show $ nsec $ endd - startd)
+  --print $!! foldl' (+) 0 $ map (foldl' (+) 0) $ matData $ fromJust c
+  --print $!! foldl' (+) 0 $ map (foldl' (+) 0) $ matData $ fromJust d
   return ()

@@ -54,10 +54,43 @@ matmulNaive ma mb
     where dot va vb = foldl' (+) 0 (zipWith (*) va vb)
           tmb = matTranspose mb
 
+matmulStrassenInternal :: (Num a, NFData a) => [[a]] -> [[a]] -> Int -> Int -> Int -> Int -> [[a]]
+matmulStrassenInternal ma mb 1 _ _ _ = [[(\x y -> foldl' (+) 0 (zipWith (*) x y)) r c | c <- transpose mb] | r <- ma]
+matmulStrassenInternal ma mb _ 1 _ _ = [[(\x y -> foldl' (+) 0 (zipWith (*) x y)) r c | c <- transpose mb] | r <- ma]
+matmulStrassenInternal ma mb _ _ 1 _ = [[(\x y -> foldl' (+) 0 (zipWith (*) x y)) r c | c <- transpose mb] | r <- ma]
+matmulStrassenInternal ma mb _ _ _ 1 = [[(\x y -> foldl' (+) 0 (zipWith (*) x y)) r c | c <- transpose mb] | r <- ma]
+matmulStrassenInternal ma mb ra ca rb cb = force $ assemble4 c1 c2 c3 c4
+  where assemble4 m1 m2 m3 m4 = (zipWith (++) m1 m2) ++ (zipWith (++) m3 m4)
+        anr = ra `div` 2
+        anc = ca `div` 2
+        bnr = rb `div` 2
+        bnc = cb `div` 2
+        a11 = take anr $ map (take anc) ma
+        a12 = take anr $ map (drop anc) ma
+        a21 = drop anr $ map (take anc) ma
+        a22 = drop anr $ map (drop anc) ma
+        b11 = take bnr $ map (take bnc) mb
+        b12 = take bnr $ map (drop bnc) mb
+        b21 = drop bnr $ map (take bnc) mb
+        b22 = drop bnr $ map (drop bnc) mb
+        matAdd = zipWith (zipWith (+))
+        matSub = zipWith (zipWith (-))
+        p = matmulStrassenInternal (a11 `matAdd` a22) (b11 `matAdd` b22) anr anc bnr bnc
+        q = matmulStrassenInternal (a21 `matAdd` a22) b11 anr anc bnr bnc
+        r = matmulStrassenInternal a11 (b12 `matSub` b22) anr anc bnr bnc
+        s = matmulStrassenInternal a22 (b21 `matSub` b11) anr anc bnr bnc
+        t = matmulStrassenInternal (a11 `matAdd` a12) b22 anr anc bnr bnc
+        u = matmulStrassenInternal (a21 `matSub` a11) (b11 `matAdd` b12) anr anc bnr bnc
+        v = matmulStrassenInternal (a12 `matSub` a22) (b21 `matAdd` b22) anr anc bnr bnc
+        c1 = ((p `matAdd` s) `matSub` t) `matAdd` v
+        c2 = r `matAdd` t
+        c3 = q `matAdd` s
+        c4 = ((p `matAdd` r) `matSub` q) `matAdd` u
+
 matmulStrassen :: (Num a, NFData a) => Matrix a -> Matrix a -> Maybe (Matrix a)
 matmulStrassen ma mb
   | (cols ma) /= (rows mb) = Nothing
-  | otherwise = force $ Just $ Matrix mbPow2 (rows ma) (cols mb)
+  | otherwise = force $ Just $ Matrix (matmulStrassenInternal maPow2 mbPow2 (nextPow2 ra) (nextPow2 ca) (nextPow2 rb) (nextPow2 cb)) (rows ma) (cols mb)
     where maPow2 = (map (\x -> x ++ (take (nextPow2 ca - ca) $ repeat 0)) $ matData ma) ++ (take (nextPow2 ra - ra) $ repeat $ take (nextPow2 ca) $ repeat 0)
           mbPow2 = (map (\x -> x ++ (take (nextPow2 cb - cb) $ repeat 0)) $ matData mb) ++ (take (nextPow2 rb - rb) $ repeat $ take (nextPow2 cb) $ repeat 0)
           ra = rows ma
@@ -73,6 +106,7 @@ main = do
   a <- return $!! fromJust $ matFromList (take 15 (randoms g :: [Double])) 3 5
   g <- newStdGen
   b <- return $!! fromJust $ matFromList (take 10 (randoms g :: [Double])) 5 2
-  c <- return $!! matmulStrassen a b
-  print b
+  c <- return $!! matmulNaive a b
+  d <- return $!! matmulStrassen a b
   print c
+  print d

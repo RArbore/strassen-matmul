@@ -32,8 +32,16 @@ matDiag (x:xs) = force $ Matrix ((x:(take (length xs) $ repeat 0)):(map ((:) 0) 
 matTranspose :: (Num a, NFData a) => Matrix a -> Matrix a
 matTranspose m = Matrix (transpose $ matData m) (cols m) (rows m)
 
+matmul :: (Num a, NFData a) => Matrix a -> Matrix a -> Maybe (Matrix a)
+matmul ma mb
+  | (cols ma) /= (rows mb) = Nothing
+  | otherwise = Just $ Matrix ([[dot r c | c <- matData tmb] | r <- (matData ma)]) (rows ma) (cols mb)
+    where dot va vb = foldl' (+) 0 (zipWith (*) va vb)
+          tmb = matTranspose mb
+
 main :: IO ()
 main = do
   print $ matInit (1.7 :: Float) 3 3
-  print $ matDiag ([1, 2, 3] :: [Float])
+  print $ matDiag ([1, 1, 1] :: [Float])
   print $ matTranspose $ Matrix ([[1, 2, 3], [4, 5, 6], [7, 8, 9]] :: [[Float]]) 3 3
+  print $ matmul (Matrix ([[1, 2, 3], [4, 5, 6], [7, 8, 9]] :: [[Float]]) 3 3) (Matrix ([[1, 2], [4, 5], [7, 8]] :: [[Float]]) 3 2)

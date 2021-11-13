@@ -12,6 +12,8 @@
 
 import Control.DeepSeq
 
+import Data.List
+
 data Matrix a = Matrix { matData :: [[a]],
                          rows :: Int,
                          cols :: Int } deriving (Show)
@@ -27,7 +29,11 @@ matDiag (x:xs) = force $ Matrix ((x:(take (length xs) $ repeat 0)):(map ((:) 0) 
   where r = length xs + 1
         c = r
 
+matTranspose :: (Num a, NFData a) => Matrix a -> Matrix a
+matTranspose m = Matrix (transpose $ matData m) (cols m) (rows m)
+
 main :: IO ()
 main = do
   print $ matInit (1.7 :: Float) 3 3
-  print $ matDiag ([1.0, 2.0, 3.0] :: [Float])
+  print $ matDiag ([1, 2, 3] :: [Float])
+  print $ matTranspose $ Matrix ([[1, 2, 3], [4, 5, 6], [7, 8, 9]] :: [[Float]]) 3 3

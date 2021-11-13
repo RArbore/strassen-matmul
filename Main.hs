@@ -28,18 +28,18 @@ instance NFData a => NFData (Matrix a) where
   rnf Matrix{matData = md, rows = r, cols = c} = rnf md `seq` rnf r `seq` rnf c
 
 matInit :: (Num a, NFData a) => a -> Int -> Int -> Matrix a
-matInit x r c = force $ Matrix (take r $ repeat $ take c $ repeat x) r c
+matInit x r c = id $!! Matrix (take r $ repeat $ take c $ repeat x) r c
 
 matDiag :: (Num a, NFData a) => [a] -> Matrix a
 matDiag [] = Matrix [] 0 0
-matDiag (x:xs) = force $ Matrix ((x:(take (length xs) $ repeat 0)):(map ((:) 0) (matData $ matDiag xs))) r c
+matDiag (x:xs) = id $!! Matrix ((x:(take (length xs) $ repeat 0)):(map ((:) 0) (matData $ matDiag xs))) r c
   where r = length xs + 1
         c = r
 
 matFromList :: (Num a, NFData a) => [a] -> Int -> Int -> Maybe (Matrix a)
 matFromList l r c
   | (length l) /= r * c = Nothing
-  | otherwise = force $ Just $ Matrix (takeChunks c l) r c
+  | otherwise = Just $!! Matrix (takeChunks c l) r c
     where takeChunks 0 _ = []
           takeChunks _ [] = []
           takeChunks s lc = (take s lc):(takeChunks s $ drop s lc)
@@ -50,16 +50,16 @@ matTranspose m = force $ Matrix (transpose $ matData m) (cols m) (rows m)
 matmulNaive :: (Num a, NFData a) => Matrix a -> Matrix a -> Maybe (Matrix a)
 matmulNaive ma mb
   | (cols ma) /= (rows mb) = Nothing
-  | otherwise = force $ Just $ Matrix ([[dot r c | c <- matData tmb] | r <- (matData ma)]) (rows ma) (cols mb)
+  | otherwise = Just $!! Matrix ([[dot r c | c <- matData tmb] | r <- (matData ma)]) (rows ma) (cols mb)
     where dot va vb = foldl' (+) 0 (zipWith (*) va vb)
           tmb = matTranspose mb
 
+leafCutoffSize = 100 :: Int
+
 matmulStrassenInternal :: (Num a, NFData a) => [[a]] -> [[a]] -> Int -> Int -> Int -> Int -> [[a]]
-matmulStrassenInternal ma mb 1 _ _ _ = [[(\x y -> foldl' (+) 0 (zipWith (*) x y)) r c | c <- transpose mb] | r <- ma]
-matmulStrassenInternal ma mb _ 1 _ _ = [[(\x y -> foldl' (+) 0 (zipWith (*) x y)) r c | c <- transpose mb] | r <- ma]
-matmulStrassenInternal ma mb _ _ 1 _ = [[(\x y -> foldl' (+) 0 (zipWith (*) x y)) r c | c <- transpose mb] | r <- ma]
-matmulStrassenInternal ma mb _ _ _ 1 = [[(\x y -> foldl' (+) 0 (zipWith (*) x y)) r c | c <- transpose mb] | r <- ma]
-matmulStrassenInternal ma mb ra ca rb cb = force $ assemble4 c1 c2 c3 c4
+matmulStrassenInternal ma mb ra ca rb cb
+  | ra <= leafCutoffSize || ca <= leafCutoffSize || rb <= leafCutoffSize || cb <= leafCutoffSize = [[(\x y -> foldl' (+) 0 (zipWith (*) x y)) r c | c <- transpose mb] | r <- ma]
+  | otherwise = id $!! assemble4 c1 c2 c3 c4
   where assemble4 m1 m2 m3 m4 = (zipWith (++) m1 m2) ++ (zipWith (++) m3 m4)
         anr = ra `div` 2
         anc = ca `div` 2
@@ -90,7 +90,7 @@ matmulStrassenInternal ma mb ra ca rb cb = force $ assemble4 c1 c2 c3 c4
 matmulStrassen :: (Num a, NFData a) => Matrix a -> Matrix a -> Maybe (Matrix a)
 matmulStrassen ma mb
   | (cols ma) /= (rows mb) = Nothing
-  | otherwise = force $ Just $ Matrix (trimExcess $ matmulStrassenInternal maPow2 mbPow2 (nextPow2 ra) (nextPow2 ca) (nextPow2 rb) (nextPow2 cb)) (rows ma) (cols mb)
+  | otherwise = Just $!! Matrix (trimExcess $ matmulStrassenInternal maPow2 mbPow2 (nextPow2 ra) (nextPow2 ca) (nextPow2 rb) (nextPow2 cb)) ra cb
     where maPow2 = (map (\x -> x ++ (take (nextPow2 ca - ca) $ repeat 0)) $ matData ma) ++ (take (nextPow2 ra - ra) $ repeat $ take (nextPow2 ca) $ repeat 0)
           mbPow2 = (map (\x -> x ++ (take (nextPow2 cb - cb) $ repeat 0)) $ matData mb) ++ (take (nextPow2 rb - rb) $ repeat $ take (nextPow2 cb) $ repeat 0)
           ra = rows ma
@@ -104,8 +104,11 @@ matmulStrassen ma mb
 main :: IO ()
 main = do
   g <- newStdGen
-  a <- return $!! fromJust $ matFromList (take 10000 (randoms g :: [Double])) 100 100
+  a <- return $!! fromJust $ matFromList (take 1000000 (randoms g :: [Double])) 1000 1000
   g <- newStdGen
-  b <- return $!! fromJust $ matFromList (take 10000 (randoms g :: [Double])) 100 100
+  b <- return $!! fromJust $ matFromList (take 1000000 (randoms g :: [Double])) 1000 1000
   c <- return $!! matmulStrassen a b
+  d <- return $!! matmulNaive a b
+  print $!! foldl' (+) 0 $ map (foldl' (+) 0) $ matData $ fromJust c
+  print $!! foldl' (+) 0 $ map (foldl' (+) 0) $ matData $ fromJust d
   return ()

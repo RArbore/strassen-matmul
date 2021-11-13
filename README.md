@@ -4,7 +4,7 @@ This is a strassen matrix multiply routine implemented in Haskell.
 
 strassen-matmul is free / libre software licensed under the GPL v3.0.
 
-Below are some benchmarks results on my machine:
+Below are some benchmark results on my machine:
 
 | Matrix Sizes | Naive Time (seconds) | Strassen Time (Seconds) |
 | --- | --- | --- |
@@ -15,3 +15,5 @@ Below are some benchmarks results on my machine:
 | 1000x1000, 1000x1000 | 23.12 | 11.40 |
 | 2000x2000, 2000x2000 | 181.03 | 84.04 |
 | 4000x4000, 4000x4000 | 1634.88 | 617.85 |
+
+As is apparent, the Strassen method will show the greatest benefit when multiplying square matrices whose sizes are slightly less than a power of 2.

@@ -13,8 +13,11 @@
 import Control.DeepSeq
 import Control.Exception
 
+import Data.Bits
 import Data.List
 import Data.Maybe
+
+import GHC.Integer.Logarithms
 
 import System.Random
 
@@ -44,18 +47,32 @@ matFromList l r c
 matTranspose :: (Num a, NFData a) => Matrix a -> Matrix a
 matTranspose m = force $ Matrix (transpose $ matData m) (cols m) (rows m)
 
-matmul :: (Num a, NFData a) => Matrix a -> Matrix a -> Maybe (Matrix a)
-matmul ma mb
+matmulNaive :: (Num a, NFData a) => Matrix a -> Matrix a -> Maybe (Matrix a)
+matmulNaive ma mb
   | (cols ma) /= (rows mb) = Nothing
   | otherwise = force $ Just $ Matrix ([[dot r c | c <- matData tmb] | r <- (matData ma)]) (rows ma) (cols mb)
     where dot va vb = foldl' (+) 0 (zipWith (*) va vb)
           tmb = matTranspose mb
 
+matmulStrassen :: (Num a, NFData a) => Matrix a -> Matrix a -> Maybe (Matrix a)
+matmulStrassen ma mb
+  | (cols ma) /= (rows mb) = Nothing
+  | otherwise = force $ Just $ Matrix mbPow2 (rows ma) (cols mb)
+    where maPow2 = (map (\x -> x ++ (take (nextPow2 ca - ca) $ repeat 0)) $ matData ma) ++ (take (nextPow2 ra - ra) $ repeat $ take (nextPow2 ca) $ repeat 0)
+          mbPow2 = (map (\x -> x ++ (take (nextPow2 cb - cb) $ repeat 0)) $ matData mb) ++ (take (nextPow2 rb - rb) $ repeat $ take (nextPow2 cb) $ repeat 0)
+          ra = rows ma
+          ca = cols ma
+          rb = rows mb
+          cb = cols mb
+          nextPow2 0 = 0
+          nextPow2 x = 2 ^ (countLeadingZeros (0 :: Int) - countLeadingZeros (x - 1))
+
 main :: IO ()
 main = do
   g <- newStdGen
-  a <- return $!! fromJust $ matFromList (take 100000 (randoms g :: [Double])) 1000 100
+  a <- return $!! fromJust $ matFromList (take 15 (randoms g :: [Double])) 3 5
   g <- newStdGen
-  b <- return $!! fromJust $ matFromList (take 100000 (randoms g :: [Double])) 100 1000
-  c <- return $!! matmul a b
-  return ()
+  b <- return $!! fromJust $ matFromList (take 10 (randoms g :: [Double])) 5 2
+  c <- return $!! matmulStrassen a b
+  print b
+  print c

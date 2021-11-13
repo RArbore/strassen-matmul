@@ -104,10 +104,8 @@ matmulStrassen ma mb
 main :: IO ()
 main = do
   g <- newStdGen
-  a <- return $!! fromJust $ matFromList (take 100 (randoms g :: [Double])) 10 10
+  a <- return $!! fromJust $ matFromList (take 10000 (randoms g :: [Double])) 100 100
   g <- newStdGen
-  b <- return $!! fromJust $ matFromList (take 100 (randoms g :: [Double])) 10 10
-  c <- return $!! matmulNaive a b
-  d <- return $!! matmulStrassen a b
-  print $ foldl' (+) 0 $ map (foldl' (+) 0) $ matData $ fromJust c
-  print $ foldl' (+) 0 $ map (foldl' (+) 0) $ matData $ fromJust d
+  b <- return $!! fromJust $ matFromList (take 10000 (randoms g :: [Double])) 100 100
+  c <- return $!! matmulStrassen a b
+  return ()

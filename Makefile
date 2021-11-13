@@ -13,7 +13,7 @@
     You should have received a copy of the GNU General Public License \
     along with strassen-matmul. If not, see <https://www.gnu.org/licenses/>.
 
-CC=ghc -dynamic
+CC=ghc -dynamic -O2
 
 Main: Main.hs
 	$(CC) $@ -o strassen-multiply

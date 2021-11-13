@@ -18,4 +18,4 @@ CC=ghc -dynamic -O2
 Main: Main.hs
 	$(CC) $@ -o strassen-multiply
 clean:
-    rm *.o *.hi strassen-multiply
+	rm *.o *.hi strassen-multiply

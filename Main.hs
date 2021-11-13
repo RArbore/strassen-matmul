@@ -18,6 +18,7 @@ import Data.List
 import Data.Maybe
 
 import System.Random
+import System.TimeIt
 
 data Matrix a = Matrix { matData :: [[a]],
                          rows :: Int,
@@ -99,14 +100,16 @@ matmulStrassen ma mb
           nextPow2 x = 2 ^ (countLeadingZeros (0 :: Int) - countLeadingZeros (x - 1))
           trimExcess = take ra . (map $ take cb)
 
+size = 4000
+
 main :: IO ()
 main = do
   g <- newStdGen
-  a <- return $!! fromJust $ matFromList (take 1000000 (randoms g :: [Double])) 1000 1000
+  a <- return $!! fromJust $ matFromList (take (size * size) (randoms g :: [Double])) size size
   g <- newStdGen
-  b <- return $!! fromJust $ matFromList (take 1000000 (randoms g :: [Double])) 1000 1000
-  c <- return $!! matmulStrassen a b
-  d <- return $!! matmulNaive a b
+  b <- return $!! fromJust $ matFromList (take (size * size) (randoms g :: [Double])) size size
+  c <- timeIt $ return $!! matmulStrassen a b
+  d <- timeIt $ return $!! matmulNaive a b
   print $!! foldl' (+) 0 $ map (foldl' (+) 0) $ matData $ fromJust c
   print $!! foldl' (+) 0 $ map (foldl' (+) 0) $ matData $ fromJust d
   return ()

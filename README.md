@@ -16,7 +16,7 @@ Below are some benchmark results on my machine (1 core, using TimeIt):
 | 2000x2000, 2000x2000 | 181.03 | 84.04 |
 | 4000x4000, 4000x4000 | 1634.88 | 617.85 |
 
-As is apparent, the Strassen method will show the greatest benefit when multiplying square matrices whose sizes are slightly less than a power of 2.
+As is apparent, the Strassen method will show the greatest benefit when multiplying square matrices whose sizes are slightly less than a power of 2. This is because matrices must be padded to the next power of 2 size; a 17x17 matrix multiplication will be processed as a 32x32 matrix multiplication after padding.
 
 Below are some benchmark results after adding parallelism (8 cores, using Clock):
 
